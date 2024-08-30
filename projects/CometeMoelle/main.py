@@ -12,7 +12,7 @@ if __name__ == '__main__':
     context.username = 'ymerel'
     context.output_folder = 'output'
 
-    with open("projects/CometeMoelle/sample.tsv") as file:
+    with open("sample.tsv") as file:
         sample_file = csv.reader(file, delimiter="\t")
 
         isHeader = True
@@ -27,9 +27,11 @@ if __name__ == '__main__':
             dataset = get_dataset(context, line[5])
 
             ds_id = dataset["id"]
+            study_id = dataset["studyId"]
             exam_id = dataset["datasetAcquisition"]["examination"]["id"]
             if exam_id not in examinations:
                 examinations[exam_id] = {}
+                examinations[exam_id]["studyId"] = study_id
                 examinations[exam_id]["T2"] = []
                 examinations[exam_id]["STIR"] = []
 
@@ -43,31 +45,31 @@ if __name__ == '__main__':
         for key, value in examinations.items():
             for t2 in value["T2"]:
                 execution = {
-                    "name": "comete-moelle_0.1_exam_{}_{}".format(key, datetime.utcnow().strftime('%F_%H%M%S%f')[:-3]),
-                    "pipelineIdentifier": "comete-moelle/0.1",
+                    "name": "comete_moelle_01_exam_{}_{}".format(key, datetime.utcnow().strftime('%F_%H%M%S%f')[:-3]),
+                    "pipelineIdentifier": "comete_moelle/0.1",
                     "inputParameters": {},
                     "datasetParameters": [
                         {
-                            "name": "t2_dataset",
+                            "name": "t2_archive",
                             "groupBy": "DATASET",
                             "exportFormat": "nii",
                             "datasetIds": [t2],
-                            "converterId": 0
+                            "converterId": 2
                         },
                         {
-                            "name": "stir_datasets",
+                            "name": "stir_archive",
                             "groupBy": "EXAMINATION",
                             "exportFormat": "nii",
                             "datasetIds": value["STIR"],
-                            "converterId": 0
+                            "converterId": 2
                         }
                     ],
-                    "studyIdentifier": dataset["studyId"],
+                    "studyIdentifier": value["studyId"],
                     "outputProcessing": "",
                     "processingType": "SEGMENTATION",
                     "refreshToken": context.refresh_token,
                     "client": context.clientId,
-                    "converterId": 0
+                    "converterId": 6
                 }
                 executions.append(execution)
 
