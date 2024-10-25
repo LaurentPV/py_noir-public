@@ -92,7 +92,6 @@ if __name__ == '__main__':
 
 
 ### Fonction pour déduire le nombre d'images d'un dicom 
-# (Romain veut au moins 50 images mais je ne suis pas sur de ce que cela signifie par rapport aux instances/images dicom et à l'image 3D reconstitué au final): 
 
 # def count_slices(directory):
 #     slices = []
