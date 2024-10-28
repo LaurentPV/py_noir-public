@@ -8,22 +8,25 @@ import pandas as pd
 import py_noir.dataset.datasets_dataset_service as dds
 import py_noir.studies.studies_subject_service as sss
 from py_noir.security.shanoir_context import ShanoirContext
+from shutil import rmtree
 
 @click.command()
 @click.option('--input', '-i', help='Input file path')
 @click.option('--slice_thickness', default=0.5, help='Maximum slice thickness value (in mm), if not specified, default value is 0.5')
-@click.option('--number_of_slices', default=50, help='Minimum number of slices value, if not specified, default value is 50')
+@click.option('--number_of_images', default=50, help='Minimum number of DICOM instances value (= images), if not specified, default value is 50')
 @click.option('--study', default='UCAN', help='Clinical study from which we want to extract the data, if not specified, default value is UCAN')
 @click.option('--username', prompt='Enter your Shanoir username', help='The Shanoir username to use')
 #@click.option('--password', prompt='Enter your Shanoir password', help='The Shanoir password to use')
-def main(input, slice_thickness, number_of_slices, study, username, password):
+def main(input, slice_thickness, number_of_images, study, username, password):
 
   context = ShanoirContext()
   context.domain = 'shanoir.irisa.fr'
   context.username = username
+  context.output_folder = './output_datasets'
 
   # List of MRI types to consider
   mri_types = ["tof","angio","flight","mra", "arm"]
+  subject_ids=[]
   results = []
 
   if study == 'UCAN':
@@ -31,21 +34,24 @@ def main(input, slice_thickness, number_of_slices, study, username, password):
   elif study == 'ICAN':
     study_id = '124'
 
-  # If "input" parameter is specified, we read the file and get the list of subject ids
+  # If "input" parameter is specified, we read the file and get the list of subject ids from subject names
   if input:
     df = pd.read_csv(input, header=None)
-    subject_ids = df[0].unique().tolist()
+    subject_names = df[0].unique().tolist()
+    all_subject_ids = sss.find_subject_ids_by_study_id(context, study_id)
+    subject_dict = {subject['name']: subject['id'] for subject in all_subject_ids}
+    for subject_name in subject_names:
+      if subject_name in subject_dict:
+        subject_ids.append(subject_dict[subject_name])
   # If "input" parameter is not specified, we get the list of subject ids from the study id
   else:
     subject_ids = sss.find_subject_ids_by_study_id(context, study_id)
-    df = pd.DataFrame(subject_ids)
 
   # For each patient (= subject in Shanoir) we get all datasets ids associated with the patient
   for subject_id in track(subject_ids, description="Processing Shanoir datasets..."):
     all_dataset_ids = dds.find_dataset_ids_by_subject_id_study_id(context, subject_id, study_id)
     for dataset in all_dataset_ids :
       is_tof = False
-      enough_frames = False
       thin_enough = False
       # get dicom metadata for each dataset and check quality compliance
       dicom_metadata = dds.getDicomMetadataByDatasetId(dataset)
@@ -57,11 +63,8 @@ def main(input, slice_thickness, number_of_slices, study, username, password):
           # Check if sliceThickness is OK
           if "00180050" in item and item["00180050"]["Value"] != [] and float(item["00180050"]["Value"][0]) < slice_thickness:
             thin_enough = True
-          # Check if NumberOfSlices or NumberOfFrames or DataElements is OK -- KO ! a revoir
-          if ("20011018" in item and item["20011018"]["Value"] != [] and int(item["20011018"]["Value"][0]) > number_of_slices) or ("00280008" in item and item["00280008"]["Value"] != [] and int(item["00280008"]["Value"][0]) > number_of_slices) or ("07A11002" in item and item["07A11002"]["Value"] != [] and int(item["07A11002"]["Value"][0]) > number_of_slices):
-            enough_frames = True
 
-        if is_tof and thin_enough and enough_frames :
+        if is_tof and thin_enough:
           results.append(dataset)
     
   if results:
@@ -69,7 +72,27 @@ def main(input, slice_thickness, number_of_slices, study, username, password):
 
     dds.download_datasets(context, results, 'dcm', context.output_folder)
 
+  # We check the number of instances for each DICOM serie downloaded and delete the serie if the number of instances is not correct
+  count_instances(context, number_of_images)
+
   # Correction of Frame of Reference UID value for each DICOM serie
+  set_frame_of_reference_UID(context)
+
+def count_instances(context: ShanoirContext, number_of_images):
+  for dirpath, dirnames, filenames in track(os.walk(context.output_folder), description="Counting number of instances for each DICOM serie..."):
+    if filenames:
+      instances = []
+      for filename in os.listdir(dirpath):
+        if filename.endswith(".dcm"):
+          filepath = os.path.join(dirpath, filename)
+          ds = pydicom.dcmread(filepath)
+          if 'InstanceNumber' in ds and ds.InstanceNumber not in instances:
+            instances.append(ds.InstanceNumber)
+      if len(set(instances)) < number_of_images:
+        print(f"Deleting serie {dirpath} because the number of instances is not sufficient")
+        rmtree(dirpath)
+
+def set_frame_of_reference_UID(context: ShanoirContext):
   for dirpath, dirnames, filenames in track(os.walk(context.output_folder), description="Setting frame of reference UID for each DICOM serie..."):
     if filenames:
       print(f"Processing DICOM series in directory: {dirpath}")
@@ -80,7 +103,7 @@ def main(input, slice_thickness, number_of_slices, study, username, password):
           dcm = pydicom.dcmread(dicom_file_path)
           dcm.FrameOfReferenceUID = frame_of_reference_uid
           dcm.save_as(dicom_file_path)
-          print(f"Updated FrameOfReferenceUID for {dicom_file_path}")
+          #print(f"Updated FrameOfReferenceUID for {dicom_file_path}")
 
 if __name__ == '__main__':
   main()
