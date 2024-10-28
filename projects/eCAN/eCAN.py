@@ -1,8 +1,7 @@
-import time
 from rich.progress import track
 import click
-import requests
 import pydicom
+from pydicom.uid import generate_uid
 import os
 from tqdm.notebook import tqdm
 import pandas as pd
@@ -69,6 +68,19 @@ def main(input, slice_thickness, number_of_slices, study, username, password):
     print(f"Found {len(results)} datasets matching the criterias")
 
     dds.download_datasets(context, results, 'dcm', context.output_folder)
+
+  # Correction of Frame of Reference UID value for each DICOM serie
+  for dirpath, dirnames, filenames in track(os.walk(context.output_folder), description="Setting frame of reference UID for each DICOM serie..."):
+    if filenames:
+      print(f"Processing DICOM series in directory: {dirpath}")
+      frame_of_reference_uid = generate_uid()
+      for dicom_file in os.listdir(dirpath):
+        dicom_file_path = os.path.join(dirpath, dicom_file)
+        if os.path.isfile(dicom_file_path) and dicom_file.endswith('.dcm'):
+          dcm = pydicom.dcmread(dicom_file_path)
+          dcm.FrameOfReferenceUID = frame_of_reference_uid
+          dcm.save_as(dicom_file_path)
+          print(f"Updated FrameOfReferenceUID for {dicom_file_path}")
 
 if __name__ == '__main__':
   main()
