@@ -59,6 +59,16 @@ def checkMetaData(metadata):
       enough_frames = True
   return is_tof and thin_enough and enough_frames
 
+def set_frame_of_reference_UID(workingFolder):
+  for dirpath, dirnames, filenames in os.walk(workingFolder):
+    if filenames:
+      frame_of_reference_uid = generate_uid()
+      for dicom_file in os.listdir(dirpath):
+        dicom_file_path = os.path.join(dirpath, dicom_file)
+        if os.path.isfile(dicom_file_path) and dicom_file.endswith('.dcm'):
+          dcm = pydicom.dcmread(dicom_file_path)
+          dcm.FrameOfReferenceUID = frame_of_reference_uid
+          dcm.save_as(dicom_file_path)
 
 def downloadDatasets(config, dataset_ids):
   for subject in dataset_ids:
@@ -66,6 +76,7 @@ def downloadDatasets(config, dataset_ids):
       outFolder = config.output_folder + "/" + subject
       os.makedirs(outFolder, exist_ok=True)
       download_dataset(config, dataset_id, 'dcm', outFolder)
+      set_frame_of_reference_UID(outFolder)
 
 def getDatasets(config, subjects_entries):
   f = open(str(subjects_entries), "r")
@@ -110,31 +121,7 @@ if __name__ == '__main__':
   config = api_service.initialize(args)
   getDatasets(config, args.subjects_json)
 
-### Code de correction GE pour Frame of Refernce UID (0020,0052): 
-
-# WrongFrameOfRef = False
-#  for i in range(0, len(ipp)):
-#    filename_dcm = dicom_infos_list[0]['Filename'][i]
-#    dcm = pydicom.dcmread(filename_dcm)
-#    if i == 0:
-#      frameOfRef = dcm.FrameOfReferenceUID
-#    if (frameOfRef != dcm.FrameOfReferenceUID):
-#       WrongFrameOfRef = True
- 
-
-# if (WrongFrameOfRef):
-#   print('Need to change frame of ref')
-#   for i in range(0, len(ipp)):
-#     filename_dcm = dicom_infos_list[0]['Filename'][i]
-#     dcm = pydicom.dcmread(filename_dcm)
-#     output_file = os.path.join(output, name, os.path.basename(filename_dcm))
-#     if i == 0:
-#       frameOfRef = dcm.FrameOfReferenceUID
-#     dcm.FrameOfReferenceUID = frameOfRef
-#     pydicom.dcmwrite(output_file, dcm)
-
-
-### Fonction pour déduire le nombre d'images d'un dicom 
+### Fonction pour déduire le nombre d'images d'un dicom
 
 # def count_slices(directory):
 #     slices = []
