@@ -9,3 +9,4 @@ class SolrQuery:
         self.page = None
         self.search_text = None
         self.expert_mode = None
+

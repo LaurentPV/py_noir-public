@@ -1,6 +1,8 @@
 import logging
 import string
-from typing import re
+import getpass
+from pathlib import Path
+import re
 
 import requests
 
@@ -161,7 +163,7 @@ def get_filename_from_response(output_folder, response):
     filename = None
     if response.headers and 'Content-Disposition' in response.headers:
         filenames = re.findall('filename=(.+)', response.headers['Content-Disposition'])
-        filename = str(output_folder / filenames[0]) if len(filenames) > 0 else None
+        filename = str(output_folder + '/' + filenames[0]) if len(filenames) > 0 else None
     if filename is None:
         raise Exception('Could not find file name in response header', response.status_code, response.reason,
                         response.error, response.headers, response)
@@ -175,3 +177,67 @@ def log_response(e):
     logging.error('		 headers: {e.response.headers}')
     logging.error(str(e))
     return
+
+def initialize(args):
+
+    context = ShanoirContext()
+    context.domain = args.domain
+    context.username = args.username
+
+    verify = args.certificate if hasattr(args, 'certificate') and args.certificate != '' else True
+
+    proxy_url = None # 'user:pass@host:port'
+
+    if hasattr(args, 'proxy_url') and args.proxy_url is not None:
+        proxy_a = args.proxy_url.split('@')
+        proxy_user = proxy_a[0]
+        proxy_host = proxy_a[1]
+        proxy_password = getpass.getpass(prompt='Proxy password for user ' + proxy_user + ' and host ' + proxy_host + ': ', stream=None)
+        proxy_url = proxy_user + ':' + proxy_password + '@' + proxy_host
+
+    else:
+
+        configuration_folder = None
+
+        if hasattr(args, 'configuration_folder') and args.configuration_folder:
+            configuration_folder = Path(args.configuration_folder)
+        else:
+            cfs = sorted(list(Path.home().glob('.su_v*')))
+            configuration_folder = cfs[-1] if len(cfs) > 0 else Path().home()
+
+        proxy_settings = configuration_folder / 'proxy.properties'
+
+        proxy_config = {}
+
+        if proxy_settings.exists():
+            with open(proxy_settings) as file:
+                for line in file:
+                    if line.startswith('proxy.'):
+                        line_s = line.split('=')
+                        proxy_key = line_s[0]
+                        proxy_value = line_s[1].strip()
+                        proxy_key = proxy_key.split('.')[-1]
+                        proxy_config[proxy_key] = proxy_value
+
+                if 'enabled' not in proxy_config or proxy_config['enabled'] == 'true':
+                    if 'user' in proxy_config and len(proxy_config['user']) > 0 and 'password' in proxy_config and len(proxy_config['password']) > 0:
+                        proxy_url = proxy_config['user'] + ':' + proxy_config['password']
+                    proxy_url += '@' + proxy_config['host'] + ':' + proxy_config['port']
+        else:
+            print("Proxy configuration file not found. Proxy will be ignored.")
+
+    proxies = None
+
+    if proxy_url:
+
+        proxies = {
+            'http': 'http://' + proxy_url,
+            # 'https': 'https://' + proxy_url,
+        }
+
+    context.proxies = proxies
+    context.verify = verify
+    context.timeout = args.timeout
+    context.output_folder = args.output_folder
+
+    return context
