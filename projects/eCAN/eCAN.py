@@ -75,7 +75,7 @@ def set_frame_of_reference_UID(workingFolder):
 def downloadDatasets(config, dataset_ids):
   for subject in dataset_ids:
     for dataset_id in dataset_ids[subject]:
-      outFolder = config.output_folder + "/" + subject
+      outFolder = config.output_folder + "/" + subject + "/" + str(dataset_id)
       os.makedirs(outFolder, exist_ok=True)
       download_dataset(config, dataset_id, 'dcm', outFolder, True)
       set_frame_of_reference_UID(outFolder)
