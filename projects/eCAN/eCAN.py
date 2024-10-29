@@ -109,3 +109,43 @@ if __name__ == '__main__':
 
   config = api_service.initialize(args)
   getDatasets(config, args.subjects_json)
+
+### Code de correction GE pour Frame of Refernce UID (0020,0052): 
+
+# WrongFrameOfRef = False
+#  for i in range(0, len(ipp)):
+#    filename_dcm = dicom_infos_list[0]['Filename'][i]
+#    dcm = pydicom.dcmread(filename_dcm)
+#    if i == 0:
+#      frameOfRef = dcm.FrameOfReferenceUID
+#    if (frameOfRef != dcm.FrameOfReferenceUID):
+#       WrongFrameOfRef = True
+ 
+
+# if (WrongFrameOfRef):
+#   print('Need to change frame of ref')
+#   for i in range(0, len(ipp)):
+#     filename_dcm = dicom_infos_list[0]['Filename'][i]
+#     dcm = pydicom.dcmread(filename_dcm)
+#     output_file = os.path.join(output, name, os.path.basename(filename_dcm))
+#     if i == 0:
+#       frameOfRef = dcm.FrameOfReferenceUID
+#     dcm.FrameOfReferenceUID = frameOfRef
+#     pydicom.dcmwrite(output_file, dcm)
+
+
+### Fonction pour déduire le nombre d'images d'un dicom 
+
+# def count_slices(directory):
+#     slices = []
+#     for filename in os.listdir(directory):
+#         if filename.endswith(".dcm"):
+#             filepath = os.path.join(directory, filename)
+#             ds = pydicom.dcmread(filepath)
+#             if 'InstanceNumber' in ds:
+#                 slices.append(ds.InstanceNumber)
+#     return len(set(slices))
+
+# dicom_directory = "/path/to/dicom/files"
+# num_slices = count_slices(dicom_directory)
+# print(f"Number of slices: {num_slices}")

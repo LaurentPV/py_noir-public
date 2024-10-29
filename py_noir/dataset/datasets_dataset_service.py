@@ -124,6 +124,18 @@ def get_dataset_dicom_metadata(context: ShanoirContext, dataset_id):
     return response.json()
 
 
+def getDicomMetadataByDatasetId(context: ShanoirContext, dataset_id):
+    """ Get all dicom metadata from dataset [dataset_id]
+    :param context:
+    :param dataset_id:
+    :return:
+    """
+    print('Getting dicom metadata from dataset', dataset_id)
+    path = ENDPOINT + '/dicom-metadata/' + dataset_id
+    response = get(context, path)
+    return response.json()
+
+
 def download_dataset_by_subject(context: ShanoirContext, subject_id, file_format, output_folder):
     """ Download all datasets from subject [subject_id] as [file_format] into [output_folder]
     :param context:
