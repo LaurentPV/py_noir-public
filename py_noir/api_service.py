@@ -1,6 +1,8 @@
 import logging
+import os
 import string
 import getpass
+import zipfile
 from pathlib import Path
 import re
 
@@ -128,7 +130,7 @@ try:
     from tqdm import tqdm
 
 
-    def download_file(output_folder, response):
+    def download_file(output_folder, response, unzip):
         filename = get_filename_from_response(output_folder, response)
         if not filename:
             return
@@ -143,6 +145,10 @@ try:
             for data in response.iter_content(chunk_size=1024):
                 size = file.write(data)
                 bar.update(size)
+        if unzip:
+            with zipfile.ZipFile(filename,'r') as zip_ref:
+                zip_ref.extractall(output_folder)
+            os.remove(filename)
 
 except ImportError as e:
 

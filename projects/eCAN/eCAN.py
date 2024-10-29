@@ -1,5 +1,7 @@
 import os
 import sys
+import zipfile
+
 sys.path.append( '../../')
 sys.path.append( '../../py_noir/dataset')
 import pydicom
@@ -75,7 +77,7 @@ def downloadDatasets(config, dataset_ids):
     for dataset_id in dataset_ids[subject]:
       outFolder = config.output_folder + "/" + subject
       os.makedirs(outFolder, exist_ok=True)
-      download_dataset(config, dataset_id, 'dcm', outFolder)
+      download_dataset(config, dataset_id, 'dcm', outFolder, True)
       set_frame_of_reference_UID(outFolder)
 
 def getDatasets(config, subjects_entries):
@@ -104,8 +106,6 @@ def getDatasets(config, subjects_entries):
       if (subName not in dataset_ids):
         dataset_ids[subName] = []
       dataset_ids[dataset["subjectName"]].append(dataset["datasetId"])
-    else:
-      print("We reject: " + str(dataset["datasetId"]))
 
   print("Datasets to download: " + str(dataset_ids))
 

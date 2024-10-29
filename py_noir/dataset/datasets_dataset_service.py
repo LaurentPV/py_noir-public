@@ -22,13 +22,14 @@ def get_dataset(context: ShanoirContext, dataset_id: string):
     return response.json()
 
 
-def download_dataset(context: ShanoirContext, dataset_id, file_format, output_folder, silent=False):
+def download_dataset(context: ShanoirContext, dataset_id, file_format, output_folder, unzip=False, silent=False):
     """ Download dataset [dataset_id] as [file_format] into [output_folder]
     :param context:
     :param dataset_id:
     :param file_format:
     :param output_folder:
     :param silent:
+    :param unzip:
     :return:
     """
     if not silent:
@@ -36,7 +37,7 @@ def download_dataset(context: ShanoirContext, dataset_id, file_format, output_fo
     file_format = 'nii' if file_format == 'nifti' else 'dcm'
     path = ENDPOINT + '/download/' + str(dataset_id)
     response = get(context, path, params={'format': file_format})
-    download_file(output_folder, response)
+    download_file(output_folder, response, unzip)
     return
 
 
