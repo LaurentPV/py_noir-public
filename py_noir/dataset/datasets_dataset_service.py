@@ -9,6 +9,7 @@ Define methods for Shanoir datasets MS datasets API call
 
 ENDPOINT = '/datasets/datasets'
 
+
 def get_dataset(context: ShanoirContext, dataset_id: string):
     """ Get dataset [dataset_id]
     :param dataset_id:
@@ -21,13 +22,14 @@ def get_dataset(context: ShanoirContext, dataset_id: string):
     return response.json()
 
 
-def download_dataset(context: ShanoirContext, dataset_id, file_format, output_folder, silent=False):
+def download_dataset(context: ShanoirContext, dataset_id, file_format, output_folder, unzip=False, silent=False):
     """ Download dataset [dataset_id] as [file_format] into [output_folder]
     :param context:
     :param dataset_id:
     :param file_format:
     :param output_folder:
     :param silent:
+    :param unzip:
     :return:
     """
     if not silent:
@@ -35,7 +37,7 @@ def download_dataset(context: ShanoirContext, dataset_id, file_format, output_fo
     file_format = 'nii' if file_format == 'nifti' else 'dcm'
     path = ENDPOINT + '/download/' + str(dataset_id)
     response = get(context, path, params={'format': file_format})
-    download_file(output_folder, response)
+    download_file(output_folder, response, unzip)
     return
 
 
@@ -89,6 +91,22 @@ def find_dataset_ids_by_subject_id(context: ShanoirContext, subject_id):
     return response.json()
 
 
+def find_dataset_ids_by_examination_id(context: ShanoirContext, examination_id):
+    """ Get all datasets from subject [subject_id]
+    :param context:
+    :param examination_id:
+    :return:
+    """
+    print('Getting datasets from examination', examination_id)
+    path = ENDPOINT + '/examination/' + examination_id
+    try:
+        response = get(context, path)
+        return response.json()
+    except:
+        print("Error for exam " + examination_id + ": " + str(response))
+        return {}
+
+
 def find_dataset_ids_by_subject_id_study_id(context: ShanoirContext, subject_id, study_id):
     """ Get all datasets from subject [subject_id] and study [study_id]
     :param context:
@@ -98,6 +116,11 @@ def find_dataset_ids_by_subject_id_study_id(context: ShanoirContext, subject_id,
     """
     print('Getting datasets from subject', subject_id, 'and study', study_id)
     path = ENDPOINT + '/subject/' + subject_id + '/study/' + study_id
+    response = get(context, path)
+    return response.json()
+
+def get_dataset_dicom_metadata(context: ShanoirContext, dataset_id):
+    path = ENDPOINT + '/dicom-metadata/' + str(dataset_id)
     response = get(context, path)
     return response.json()
 
@@ -125,7 +148,6 @@ def download_dataset_by_subject(context: ShanoirContext, subject_id, file_format
     dataset_ids = find_dataset_ids_by_subject_id(context, subject_id)
     download_datasets(context, dataset_ids, file_format, output_folder)
     return
-
 
 def download_dataset_by_subject_id_study_id(context: ShanoirContext, subject_id, study_id, file_format, output_folder):
     """ Download all datasets from subject [subject_id] and study [study_id] as [file_format] into [output_folder]

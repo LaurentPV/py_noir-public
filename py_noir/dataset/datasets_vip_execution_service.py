@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from typing import List
 
 from py_noir.api_service import post, get
 from py_noir.dataset.datasets_execution_monitoring_service import get_execution_monitoring
@@ -20,7 +21,7 @@ def create_execution(context: ShanoirContext, execution: dict):
     return response.json()
 
 
-def create_executions(context: ShanoirContext, executions: list[dict], log_status=False):
+def create_executions(context: ShanoirContext, executions: List[dict], log_status=False):
     """
     Create executions [executions] in queue.
     Log status in [context.output_folder] if [log_status] is True
