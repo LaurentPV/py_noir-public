@@ -46,20 +46,21 @@ def checkMetaData(metadata):
   if metadata is None :
     return False
   mri_types = ["tof","angio","angiography","time of flight","mra"]
+  slice_thickness = 0.5
   is_tof = False
   thin_enough = False
-  enough_frames = False
+  #enough_frames = False
   for item in metadata:
     # Check if ProtocolName or SeriesDescription contains "tof" or "angio" or "flight"
     if ('0008103E' in item and any(x in item['0008103E']["Value"][0].lower() for x in mri_types)) or ('00181030' in item and any(x in item['00181030']["Value"][0].lower() for x in mri_types)):
       is_tof = True
 
-    if "00180050" in item and item["00180050"]["Value"] != [] and float(item["00180050"]["Value"][0]) < 5:
+    if "00180050" in item and item["00180050"]["Value"] != [] and float(item["00180050"]["Value"][0]) < slice_thickness:
       thin_enough = True
 
-    if ("20011018" in item and item["20011018"]["Value"] != [] and int(item["20011018"]["Value"][0]) > 50) or ("00280008" in item and item["00280008"]["Value"] != [] and int(item["00280008"]["Value"][0]) > 50) or ("07A11002" in item and item["07A11002"]["Value"] != [] and int(item["07A11002"]["Value"][0]) > 50):
-      enough_frames = True
-  return is_tof and thin_enough and enough_frames
+    # if ("20011018" in item and item["20011018"]["Value"] != [] and int(item["20011018"]["Value"][0]) > 50) or ("00280008" in item and item["00280008"]["Value"] != [] and int(item["00280008"]["Value"][0]) > 50) or ("07A11002" in item and item["07A11002"]["Value"] != [] and int(item["07A11002"]["Value"][0]) > 50):
+    #   enough_frames = True
+  return is_tof and thin_enough #and enough_frames
 
 def set_frame_of_reference_UID(workingFolder):
   for dirpath, dirnames, filenames in os.walk(workingFolder):
