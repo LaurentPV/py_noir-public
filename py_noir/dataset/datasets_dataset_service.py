@@ -1,6 +1,6 @@
 import string
 
-from py_noir.api_service import get, download_file, post
+from py_noir.api_service import get, download_file, download_files, post
 from py_noir.security.shanoir_context import ShanoirContext
 
 """
@@ -59,7 +59,7 @@ def download_datasets(context: ShanoirContext, dataset_ids, file_format, output_
     path = ENDPOINT + '/massiveDownload'
     params = dict(datasetIds=dataset_ids, format=file_format)
     response = post(context, path, params=params, files=params, stream=True)
-    download_file(output_folder, response)
+    download_files(output_folder, response)
     return
 
 
@@ -75,7 +75,7 @@ def download_dataset_by_study(context: ShanoirContext, study_id, file_format, ou
     file_format = 'nii' if file_format == 'nifti' else 'dcm'
     path = ENDPOINT + '/massiveDownloadByStudy'
     response = get(context, path, params={'studyId': study_id, 'format': file_format})
-    download_file(output_folder, response)
+    download_files(output_folder, response)
     return
 
 

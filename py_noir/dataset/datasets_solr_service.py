@@ -57,6 +57,7 @@ def solr_search(context: ShanoirContext, query: SolrQuery):
     }
 
     params = dict(page=query.page, size=query.size, sort=query.sort)
+    print("SolR request: ", query.search_text)
     response = post(context, path, params=params, data=json.dumps(data))
 
     return response
