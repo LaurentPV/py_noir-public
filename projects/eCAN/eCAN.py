@@ -17,7 +17,7 @@ sys.path.append( '../../py_noir/dataset')
 from py_noir import api_service
 from py_noir.dataset import datasets_solr_service
 from py_noir.dataset.solr_query import SolrQuery
-from py_noir.dataset.datasets_dataset_service import get_dataset_dicom_metadata, download_dataset
+from py_noir.dataset.datasets_dataset_service import get_dataset_dicom_metadata, download_dataset, download_datasets
 
 
 def create_arg_parser(description="""Shanoir downloader"""):
@@ -42,42 +42,55 @@ def add_configuration_arguments(parser):
   parser.add_argument('-t', '--timeout', type=float, default=60*4, help='The request timeout.')
   parser.add_argument('-lf', '--log_file', type=str, help="Path to the log file. Default is output_folder/downloads.log", default=None)
   parser.add_argument('-out', '--output_folder', type=str, help="Path to the result folder.", default=None)
+  parser.add_argument('-s', '--study', required=False, type=str, help="Shanoir study to query (e.g UCAN).", default=None)
   return parser
 
-def add_subject_entries_argument(parser):
-  parser.add_argument('-subjects', '--subjects_csv', required=True, default='', help='Path to the list of subjects in a csv file')
-  parser.add_argument('-study', '--shanoir_study', required=False, default='', help='Shanoir study to download')
+def add_subjects_argument(parser):
+  parser.add_argument('-subjects', '--subjects_csv', required=False, default='', help='Path to the list of subjects in a csv file') # !!! If not provided, all TOFS will be downloaded !!!
   return parser
 
-def getDatasets(config, subjects_entries, shanoir_study, assoc):
-  # TODO : add the case of downloading a whole study
-  with open(str(subjects_entries), "r") as f:
-    reader = csv.reader(f)
-    subjects = [row[0].strip() for row in reader if row]
-
+def getDatasets(config, subjects_entries, study, assoc):
   query = SolrQuery()
   query.size = 100000
   query.expert_mode = True
-  query.search_text = ('subjectName:' + str(subjects)
+  query.search_text = ""
+
+  if study:
+    query.search_text = query.search_text + "studyName:" + study + " AND "
+
+  # If -subjects argument is filled, we filter the datasets by subjectName, otherwise we search for all TOF datasets
+  if subjects_entries: 
+    with open(str(subjects_entries), "r") as f:
+      reader = csv.reader(f)
+      subjects = [row[0].strip() for row in reader if row]
+      query.search_text = ('subjectName:' + str(subjects)
                        .replace(',', ' OR ')
                        .replace('\'', '')
                        .replace("[", "(")
-                       .replace("]", ")"))
-  query.search_text = query.search_text + " AND datasetName:(*tof* OR *angio* OR *flight* OR *mra* OR *arm*)"
+                       .replace("]", ")")
+                       + ' AND ')
+
+  # We filter the datasets by datasetName and sliceThickness directly to replace the check metadata step
+  query.search_text = query.search_text + "datasetName:(*tof* OR *angio* OR *flight* OR *mra* OR *arm*) AND sliceThickness:([0.01 TO 5] OR [100 TO 500])"
 
   result = datasets_solr_service.solr_search(config, query)
   jsonresult = json.loads(result.content)
 
   dataset_ids = {}
   for dataset in tqdm(jsonresult["content"], desc="Filtering datasets"):
-    metadata = get_dataset_dicom_metadata(config, dataset["datasetId"])
-    if checkMetaData(metadata):
-      subName = dataset["subjectName"]
-      if (subName not in dataset_ids):
-        dataset_ids[subName] = []
-      dataset_ids[dataset["subjectName"]].append(dataset["datasetId"])
+    ### We comment for now the check metadata step to skip one API call
+    #metadata = get_dataset_dicom_metadata(config, dataset["datasetId"])
+    # if checkMetaData(metadata):
+    #   subName = dataset["subjectName"]
+    #   if (subName not in dataset_ids):
+    #     dataset_ids[subName] = []
+    #   dataset_ids[dataset["subjectName"]].append(dataset["datasetId"])
+    subName = dataset["subjectName"]
+    if (subName not in dataset_ids):
+      dataset_ids[subName] = []
+    dataset_ids[dataset["subjectName"]].append(dataset["datasetId"])
 
-  print("Datasets to download: " + str(dataset_ids))
+  print("Number of Shanoir datasets to download: " + str(len(dataset_ids)))
 
   downloadDatasets(config, dataset_ids, assoc)
 
@@ -85,10 +98,10 @@ def checkMetaData(metadata):
   if metadata is None :
     return False
   mri_types = ["tof","angio","angiography","time of flight","mra"]
-  slice_thickness = 0.5
+  slice_thickness = 0.6
   is_tof = False
   thin_enough = False
-  #enough_frames = False
+  enough_frames = False
   for item in metadata:
     # Check if ProtocolName or SeriesDescription contains "tof" or "angio" or "flight"
     if ('0008103E' in item and any(x in item['0008103E']["Value"][0].lower() for x in mri_types)) or ('00181030' in item and any(x in item['00181030']["Value"][0].lower() for x in mri_types)):
@@ -100,7 +113,7 @@ def checkMetaData(metadata):
 
     # if ("20011018" in item and item["20011018"]["Value"] != [] and int(item["20011018"]["Value"][0]) > 50) or ("00280008" in item and item["00280008"]["Value"] != [] and int(item["00280008"]["Value"][0]) > 50) or ("07A11002" in item and item["07A11002"]["Value"] != [] and int(item["07A11002"]["Value"][0]) > 50):
     #   enough_frames = True
-  return is_tof and thin_enough #and enough_frames
+  return thin_enough and is_tof and enough_frames
 
 
 def downloadDatasets(config, dataset_ids, assoc):
@@ -116,11 +129,12 @@ def downloadDatasets(config, dataset_ids, assoc):
   for subject in tqdm(dataset_ids, desc="Downloading datasets"):
     subjFolder = config.output_folder + "/" + subject
     for dataset_id in dataset_ids[subject]:
+      #download_datasets(config, dataset_ids[subject], 'dcm', subjFolder) ???
       outFolder = config.output_folder + "/" + subject + "/" + str(dataset_id)
       os.makedirs(outFolder, exist_ok=True)
       download_dataset(config, dataset_id, 'dcm', outFolder, True)
-      # We send the dicom files to the PACS if the number of slices is greater than 50
-      if count_slices(outFolder) > 50:
+      # We send the dicom files to the PACS if the number of slices is greater than 49
+      if count_slices(outFolder) > 49:
         # Setting a common FrameOfReferenceUID metadata for all instances of a serie
         set_frame_of_reference_UID(outFolder)
         # C-Store the dicom files to the PACS
@@ -131,8 +145,8 @@ def downloadDatasets(config, dataset_ids, assoc):
         if not os.listdir(outFolder):
           print("Dataset " + str(dataset_id) + " has been successfully sent to the PACS")
           os.rmdir(outFolder)
-        # Update progress
-        update_progress(progress, subject, dataset_id, progress_file)
+          # Update progress
+          update_progress(progress, subject, dataset_id, progress_file)
       else:
         shutil.rmtree(outFolder)
         # Update progress in case dataset not OK but still processed ???
@@ -202,7 +216,7 @@ def update_progress(progress, subject_id, dataset_id, progress_file):
 if __name__ == '__main__':
   parser = create_arg_parser()
   add_common_arguments(parser)
-  add_subject_entries_argument(parser)
+  add_subjects_argument(parser)
   add_configuration_arguments(parser)
   args = parser.parse_args()
 
@@ -212,6 +226,9 @@ if __name__ == '__main__':
   pacs_ae_title = 'DCM4CHEE'
   pacs_ip = '127.0.0.1'
   pacs_port = 11112
+
+  # Script AE parameters
+  listen_port = 45106
   client_ae_title = 'ECAN_SCRIPT_AE'
 
   # Initialize PACS connexion
@@ -221,10 +238,16 @@ if __name__ == '__main__':
   ae.add_requested_context(MRImageStorage)
   ae.add_requested_context(XRayAngiographicImageStorage)
 
+  #ae.add_supported_context(VerificationServiceClass)
+  ae.add_supported_context(MRImageStorage)
+  ae.add_supported_context(XRayAngiographicImageStorage)
+
+  ae.start_server(('127.0.0.1', listen_port), block=False)
+
   # Request an association with the PACS
   assoc = ae.associate(pacs_ip, pacs_port, ae_title=pacs_ae_title)
 
-  getDatasets(config, args.subjects_csv, args.shanoir_study, assoc)
+  getDatasets(config, args.subjects_csv, args.study, assoc)
 
   # Release the association with the PACS
   assoc.release()
