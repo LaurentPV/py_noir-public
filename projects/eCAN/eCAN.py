@@ -19,6 +19,18 @@ from py_noir.dataset import datasets_solr_service
 from py_noir.dataset.solr_query import SolrQuery
 from py_noir.dataset.datasets_dataset_service import get_dataset_dicom_metadata, download_dataset, download_datasets
 
+import projects.eCAN.UploadDicomFiles as UploadDicomFiles
+
+# Distant PACS parameters
+pacs_ae_title = 'ORTHANC'
+pacs_ip = '127.0.0.1'
+pacs_port = 4242
+dicom_web_port = 8042
+
+# Script AE parameters
+listen_port = 45106
+client_ae_title = 'ECAN_SCRIPT_AE'
+
 
 def create_arg_parser(description="""Shanoir downloader"""):
   parser = argparse.ArgumentParser(prog=__file__, description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -49,7 +61,7 @@ def add_subjects_argument(parser):
   parser.add_argument('-subjects', '--subjects_csv', required=False, default='', help='Path to the list of subjects in a csv file') # !!! If not provided, all TOFS will be downloaded !!!
   return parser
 
-def getDatasets(config, subjects_entries, study, assoc):
+def getDatasets(config, subjects_entries, study):
   query = SolrQuery()
   query.size = 100000
   query.expert_mode = True
@@ -92,7 +104,7 @@ def getDatasets(config, subjects_entries, study, assoc):
 
   print("Number of Shanoir datasets to download: " + str(len(dataset_ids)))
 
-  downloadDatasets(config, dataset_ids, assoc)
+  downloadDatasets(config, dataset_ids)
 
 def checkMetaData(metadata):
   if metadata is None :
@@ -116,7 +128,7 @@ def checkMetaData(metadata):
   return thin_enough and is_tof and enough_frames
 
 
-def downloadDatasets(config, dataset_ids, assoc):
+def downloadDatasets(config, dataset_ids):
   # We store the progress in a json file
   progress = {}
   progress_file = os.path.join(config.output_folder, "progress.json")
@@ -125,6 +137,9 @@ def downloadDatasets(config, dataset_ids, assoc):
   if os.path.exists(progress_file):
     with open(progress_file, 'r') as f:
       progress = json.load(f)
+  else:
+    with open(progress_file, "w") as file:
+      json.dump(progress, file)
 
   for subject in tqdm(dataset_ids, desc="Downloading datasets"):
     subjFolder = config.output_folder + "/" + subject
@@ -137,13 +152,14 @@ def downloadDatasets(config, dataset_ids, assoc):
       if count_slices(outFolder) > 49:
         # Setting a common FrameOfReferenceUID metadata for all instances of a serie
         set_frame_of_reference_UID(outFolder)
+        UploadDicomFiles.UploadDataset(pacs_ip, dicom_web_port, outFolder, None, None)
         # C-Store the dicom files to the PACS
-        for file_name in tqdm(os.listdir(outFolder), desc="Sending DICOM files to PACS"):
-          if file_name.endswith('.dcm'):
-            cStore_dataset(os.path.join(outFolder, file_name), assoc)
+        # for file_name in tqdm(os.listdir(outFolder), desc="Sending DICOM files to PACS"):
+        #   if file_name.endswith('.dcm'):
+        #     cStore_dataset(os.path.join(outFolder, file_name), assoc)
         # If the dataset folder is empty it means that all .dcm files have been sent to the PACS
         if not os.listdir(outFolder):
-          print("Dataset " + str(dataset_id) + " has been successfully sent to the PACS")
+          #print("Dataset " + str(dataset_id) + " has been successfully sent to the PACS")
           os.rmdir(outFolder)
           # Update progress
           update_progress(progress, subject, dataset_id, progress_file)
@@ -187,7 +203,7 @@ def cStore_dataset(dicom_file_path, assoc):
   except Exception as e:
     print(f"Error reading the DICOM file {dicom_file_path} : {e}")
     return
-
+  print("Association with ORTHANC : ", assoc.is_established)  
   if assoc.is_established:
     status = assoc.send_c_store(ds)
 
@@ -200,10 +216,10 @@ def cStore_dataset(dicom_file_path, assoc):
     
   else:
     print("Unable to establish a connection with PACS.")
-    try:
-      assoc = ae.associate(pacs_ip, pacs_port, ae_title=pacs_ae_title)
-    except Exception as e:
-      print(f"Error establishing a connection with PACS : {e}")
+    # try:
+    #   assoc = ae.associate(pacs_ip, pacs_port, ae_title=pacs_ae_title)
+    # except Exception as e:
+    #   print(f"Error establishing a connection with PACS : {e}")
 
 def update_progress(progress, subject_id, dataset_id, progress_file):
     if subject_id not in progress:
@@ -212,6 +228,22 @@ def update_progress(progress, subject_id, dataset_id, progress_file):
         progress[subject_id].append(dataset_id)
     with open(progress_file, 'w') as f:
       json.dump(progress, f, indent=2)
+
+def connectToPacs():
+  # Initialize PACS connexion
+  ae = AE(ae_title=client_ae_title)
+
+  # Add SOP class service for MR and X-Ray images
+  ae.add_requested_context(MRImageStorage)
+  ae.add_requested_context(XRayAngiographicImageStorage)
+
+  ae.add_supported_context(MRImageStorage)
+  ae.add_supported_context(XRayAngiographicImageStorage)
+
+  ae.start_server(('127.0.0.1', listen_port), block=False)
+
+  # Request an association with the PACS
+  return ae.associate(pacs_ip, pacs_port, ae_title=pacs_ae_title)
 
 if __name__ == '__main__':
   parser = create_arg_parser()
@@ -222,32 +254,10 @@ if __name__ == '__main__':
 
   config = api_service.initialize(args)
 
-  # Distant PACS parameters
-  pacs_ae_title = 'DCM4CHEE'
-  pacs_ip = '127.0.0.1'
-  pacs_port = 11112
-
-  # Script AE parameters
-  listen_port = 45106
-  client_ae_title = 'ECAN_SCRIPT_AE'
-
-  # Initialize PACS connexion
-  ae = AE(ae_title=client_ae_title)
-
-  # Add SOP class service for MR and X-Ray images
-  ae.add_requested_context(MRImageStorage)
-  ae.add_requested_context(XRayAngiographicImageStorage)
-
-  #ae.add_supported_context(VerificationServiceClass)
-  ae.add_supported_context(MRImageStorage)
-  ae.add_supported_context(XRayAngiographicImageStorage)
-
-  ae.start_server(('127.0.0.1', listen_port), block=False)
-
   # Request an association with the PACS
-  assoc = ae.associate(pacs_ip, pacs_port, ae_title=pacs_ae_title)
+  #assoc = connectToPacs()
 
-  getDatasets(config, args.subjects_csv, args.study, assoc)
+  getDatasets(config, args.subjects_csv, args.study) #assoc
 
   # Release the association with the PACS
-  assoc.release()
+  #assoc.release()
