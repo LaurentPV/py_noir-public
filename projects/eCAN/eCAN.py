@@ -102,7 +102,9 @@ def getDatasets(config, subjects_entries, study):
       dataset_ids[subName] = []
     dataset_ids[dataset["subjectName"]].append(dataset["datasetId"])
 
-  print("Number of Shanoir datasets to download: " + str(len(dataset_ids)))
+  total_datasets = sum(len(datasets) for datasets in dataset_ids.values())
+
+  print("Number of Shanoir datasets to download: " + str(total_datasets))
 
   downloadDatasets(config, dataset_ids)
 
@@ -137,6 +139,13 @@ def downloadDatasets(config, dataset_ids):
   if os.path.exists(progress_file):
     with open(progress_file, 'r') as f:
       progress = json.load(f)
+      # We remove from the dataset_ids the datasets that have previously been processed
+      for subject, datasets in progress.items():
+        if subject in dataset_ids:
+          dataset_ids[subject] = [ds_id for ds_id in dataset_ids[subject] if ds_id not in datasets]
+
+      # We delete from the dataset_ids the subjects that have already been fully processed
+      dataset_ids = {k: v for k, v in dataset_ids.items() if v}
   else:
     with open(progress_file, "w") as file:
       json.dump(progress, file)
@@ -164,6 +173,7 @@ def downloadDatasets(config, dataset_ids):
           # Update progress
           update_progress(progress, subject, dataset_id, progress_file)
       else:
+        print("Removing dataset " + str(dataset_id) + " because it contains less than 50 DICOM instances")
         shutil.rmtree(outFolder)
         # Update progress in case dataset not OK but still processed ???
         # update_progress(progress, subject, dataset_id, progress_file)
