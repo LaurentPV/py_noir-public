@@ -29,7 +29,7 @@ dicom_web_port = 8042
 
 # Script AE parameters
 listen_port = 45106
-client_ae_title = 'ECAN_SCRIPT_AE'
+client_ae_title = 'AE_SCRIPT_ECAN'
 
 
 def create_arg_parser(description="""Shanoir downloader"""):
