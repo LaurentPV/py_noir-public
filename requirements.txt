@@ -1,21 +1,21 @@
-Brotli @ file:///Users/runner/miniforge3/conda-bld/brotli-split_1725267563793/work
-certifi @ file:///home/conda/feedstock_root/build_artifacts/certifi_1734380492396/work/certifi
-cffi @ file:///Users/runner/miniforge3/conda-bld/cffi_1725560578465/work
-charset-normalizer @ file:///home/conda/feedstock_root/build_artifacts/charset-normalizer_1733218092148/work
-colorama @ file:///home/conda/feedstock_root/build_artifacts/colorama_1733218098505/work
-h2 @ file:///home/conda/feedstock_root/build_artifacts/h2_1733298745555/work
-hpack @ file:///home/conda/feedstock_root/build_artifacts/hpack_1733299205993/work
-httplib2 @ file:///home/conda/feedstock_root/build_artifacts/httplib2_1733927481809/work
-hyperframe @ file:///home/conda/feedstock_root/build_artifacts/hyperframe_1733298771451/work
-idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1733211830134/work
-pycparser @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pycparser_1733195786/work
-pydicom @ file:///home/conda/feedstock_root/build_artifacts/pydicom_1727463495011/work
-pynetdicom @ file:///home/conda/feedstock_root/build_artifacts/pynetdicom_1722209348572/work
-pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1733222594562/work
-PySocks @ file:///home/conda/feedstock_root/build_artifacts/pysocks_1733217236728/work
-requests @ file:///home/conda/feedstock_root/build_artifacts/requests_1733217035951/work
+Brotli
+certifi
+cffi
+charset-normalizer
+colorama
+h2
+hpack
+httplib2
+hyperframe
+idna
+pycparser
+pydicom
+pynetdicom
+pyparsing
+PySocks
+requests
 setuptools==75.6.0
-tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1732497199771/work
-urllib3 @ file:///home/conda/feedstock_root/build_artifacts/urllib3_1733206856906/work
+tqdm
+urllib3
 wheel==0.45.1
 zstandard==0.23.0
